@@ -1,0 +1,13 @@
+[package]
+name = "bookmarks-alfred-workflow"
+version = "1.0.0"
+authors = ["Joscha"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+anyhow = "1.0.56"
+log = { version = "0.4.14", features = ["std"] }
+powerpack = { version = "0.4.1", features = ["detach"] }
+json = "0.12.4"
