@@ -1,8 +1,13 @@
 .DEFAULT_GOAL:= help
 
+.PHONY:dependencies 
+dependencies: ## download and install dependencies
+	cargo update
+	cargo build
+
 .PHONY:test 
 test: ## executes tests
-	cargo test	
+	cargo test
 
 .PHONY: package
 package: ## creates alfred workflow binary
