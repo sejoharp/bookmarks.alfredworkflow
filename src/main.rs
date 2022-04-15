@@ -6,8 +6,10 @@ use std::fs;
 use anyhow::Result;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use itertools::Itertools;
 use json::JsonValue;
 use powerpack::Item;
+
 #[derive(Debug, Clone)]
 pub struct Bookmark {
     name: String,
@@ -78,23 +80,18 @@ fn default(query: String, default_search_url: String) -> Item {
     .arg(default_search_url)
 }
 
-fn find_matching_bookmarks(bookmarks: Vec<Bookmark>, query: String) -> Vec<Bookmark> {
-    let mut bookmarks = bookmarks.clone();
-    bookmarks.sort_by_key(|bookmark| bookmark.calculate_matching_score(query.to_owned()));
-    return bookmarks;
-}
-
 fn to_items(bookmarks: Vec<Bookmark>, query: String, default_search_url: String) -> Vec<Item> {
-    let matched_bookmarks: Vec<Item> = find_matching_bookmarks(bookmarks, query.clone())
+    let matched_bookmarks: Vec<Item> = bookmarks
         .iter()
+        .sorted_by_key(|bookmark| bookmark.calculate_matching_score(query.to_owned()))
         .filter(|bookmark| bookmark.calculate_matching_score(query.to_owned()) > 0)
         .map(|bookmark| bookmark.to_item())
         .collect();
-    if matched_bookmarks.is_empty() {
+    return if matched_bookmarks.is_empty() {
         vec![default(query, default_search_url)]
     } else {
         matched_bookmarks
-    }
+    };
 }
 
 fn main() -> Result<()> {
