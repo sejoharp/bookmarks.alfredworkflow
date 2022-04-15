@@ -2,6 +2,7 @@ extern crate json;
 
 use std::env;
 use std::fs;
+use std::ops::Neg;
 
 use anyhow::Result;
 use fuzzy_matcher::skim::SkimMatcherV2;
@@ -41,7 +42,8 @@ impl Bookmark {
         return matcher
             .fuzzy_match(&self.name[..], &query[..])
             .get_or_insert(0)
-            .to_owned();
+            .to_owned()
+            .neg();
     }
 }
 
@@ -84,7 +86,7 @@ fn to_items(bookmarks: Vec<Bookmark>, query: String, default_search_url: String)
     let matched_bookmarks: Vec<Item> = bookmarks
         .iter()
         .sorted_by_key(|bookmark| bookmark.calculate_matching_score(query.to_owned()))
-        .filter(|bookmark| bookmark.calculate_matching_score(query.to_owned()) > 0)
+        .filter(|bookmark| bookmark.calculate_matching_score(query.to_owned()) < 0)
         .map(|bookmark| bookmark.to_item())
         .collect();
     return if matched_bookmarks.is_empty() {
