@@ -4,10 +4,10 @@ use std::env;
 use std::fs;
 
 use anyhow::Result;
-
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use json::JsonValue;
 use powerpack::Item;
-
 #[derive(Debug, Clone)]
 pub struct Bookmark {
     name: String,
@@ -32,6 +32,14 @@ impl Bookmark {
 
     pub fn find(&self, query: String) -> bool {
         return self.name.to_lowercase().contains(query.as_str());
+    }
+
+    pub fn calculate_matching_score(&self, query: String) -> i64 {
+        let matcher = SkimMatcherV2::default();
+        return matcher
+            .fuzzy_match(&self.name[..], &query[..])
+            .get_or_insert(0)
+            .to_owned();
     }
 }
 
@@ -71,16 +79,15 @@ fn default(query: String, default_search_url: String) -> Item {
 }
 
 fn find_matching_bookmarks(bookmarks: Vec<Bookmark>, query: String) -> Vec<Bookmark> {
-    bookmarks
-        .into_iter()
-        .filter(|bookmark| bookmark.find(query.clone()))
-        .collect()
+    let mut bookmarks = bookmarks.clone();
+    bookmarks.sort_by_key(|bookmark| bookmark.calculate_matching_score(query.to_owned()));
+    return bookmarks;
 }
 
 fn to_items(bookmarks: Vec<Bookmark>, query: String, default_search_url: String) -> Vec<Item> {
     let matched_bookmarks: Vec<Item> = find_matching_bookmarks(bookmarks, query.clone())
         .iter()
-        .take(10)
+        .filter(|bookmark| bookmark.calculate_matching_score(query.to_owned()) > 0)
         .map(|bookmark| bookmark.to_item())
         .collect();
     if matched_bookmarks.is_empty() {
