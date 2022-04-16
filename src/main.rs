@@ -11,7 +11,7 @@ use itertools::Itertools;
 use json::JsonValue;
 use powerpack::Item;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Bookmark {
     name: String,
     link: String,
@@ -31,10 +31,6 @@ impl Bookmark {
         Item::new(self.name.to_string())
             .subtitle("Open in browser →")
             .arg(self.link.to_owned())
-    }
-
-    pub fn find(&self, query: String) -> bool {
-        return self.name.to_lowercase().contains(query.as_str());
     }
 
     pub fn calculate_matching_score(&self, query: String) -> i64 {
@@ -82,11 +78,18 @@ fn default(query: String, default_search_url: String) -> Item {
     .arg(default_search_url)
 }
 
-fn to_items(bookmarks: Vec<Bookmark>, query: String, default_search_url: String) -> Vec<Item> {
-    let matched_bookmarks: Vec<Item> = bookmarks
+fn sort_and_filter_matching_bookmarks(bookmarks: Vec<Bookmark>, query: String) -> Vec<Bookmark> {
+    return bookmarks
         .iter()
         .sorted_by_key(|bookmark| bookmark.calculate_matching_score(query.to_owned()))
         .filter(|bookmark| bookmark.calculate_matching_score(query.to_owned()) < 0)
+        .map(|bookmark| bookmark.to_owned())
+        .collect();
+}
+
+fn to_items(bookmarks: Vec<Bookmark>, query: String, default_search_url: String) -> Vec<Item> {
+    let matched_bookmarks: Vec<Item> = sort_and_filter_matching_bookmarks(bookmarks, query.clone())
+        .iter()
         .map(|bookmark| bookmark.to_item())
         .collect();
     return if matched_bookmarks.is_empty() {
@@ -119,14 +122,82 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Bookmark;
+    use powerpack::Item;
+
+    use crate::{sort_and_filter_matching_bookmarks, Bookmark};
 
     #[test]
-    fn finds_bookmark() {
+    fn does_not_matches_the_query() {
         let bookmark = Bookmark {
             name: String::from("Dashboard"),
             link: String::from("http://www.test.blub"),
         };
-        assert_eq!(bookmark.find(String::from("dash")), true);
+
+        let score = bookmark.calculate_matching_score("z".to_string());
+
+        assert_eq!(score, 0);
+    }
+
+    #[test]
+    fn matches_the_query() {
+        let bookmark = Bookmark {
+            name: String::from("Dashboard"),
+            link: String::from("http://www.test.blub"),
+        };
+
+        let score = bookmark.calculate_matching_score("d".to_string());
+
+        assert_eq!(score, -29);
+    }
+
+    #[test]
+    fn transforms_to_item() {
+        let bookmark = Bookmark {
+            name: String::from("Dashboard"),
+            link: String::from("http://www.test.blub"),
+        };
+        let expected_item = Item::new("Dashboard")
+            .subtitle("Open in browser →")
+            .arg("http://www.test.blub");
+
+        let item = bookmark.to_item();
+
+        assert_eq!(item, expected_item);
+    }
+
+    #[test]
+    fn sorts_and_keep_matchting_bookmarks() {
+        let bookmark1 = Bookmark {
+            name: String::from("Dashboard"),
+            link: String::from("http://www.test.blub"),
+        };
+        let bookmark2 = Bookmark {
+            name: String::from("Bookmarks"),
+            link: String::from("http://www.bookmarks.blub"),
+        };
+        let bookmarks = vec![bookmark1.clone(), bookmark2.clone()];
+        let expected_bookmarks = vec![bookmark1.clone(), bookmark2.clone()];
+
+        let matching_bookmarks = sort_and_filter_matching_bookmarks(bookmarks, "o".to_owned());
+
+        assert_eq!(matching_bookmarks, expected_bookmarks);
+    }
+
+    #[test]
+    fn removes_not_matchting_bookmarks() {
+        let bookmark1 = Bookmark {
+            name: String::from("Dashboard"),
+            link: String::from("http://www.test.blub"),
+        };
+        let bookmark2 = Bookmark {
+            name: String::from("Bookmarks"),
+            link: String::from("http://www.bookmarks.blub"),
+        };
+        let bookmarks = vec![bookmark1.clone(), bookmark2.clone()];
+        let expected_bookmarks = vec![bookmark1.clone()];
+
+        let matching_bookmarks = sort_and_filter_matching_bookmarks(bookmarks, "d".to_owned());
+
+        assert_eq!(matching_bookmarks, expected_bookmarks);
     }
 }
